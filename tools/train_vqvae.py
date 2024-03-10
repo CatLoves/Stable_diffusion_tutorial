@@ -15,6 +15,7 @@ from dataset.celeb_dataset import CelebDataset
 from torch.optim import Adam
 from torchvision.utils import make_grid
 
+assert torch.cuda.is_available(), f"should use GPU."
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
@@ -97,7 +98,7 @@ def train(args):
         optimizer_g.zero_grad()
         optimizer_d.zero_grad()
         
-        for im in tqdm(data_loader):
+        for im in tqdm(data_loader, position=-1, mininterval=2):
             step_count += 1
             im = im.float().to(device)
             
@@ -201,4 +202,5 @@ if __name__ == '__main__':
     parser.add_argument('--config', dest='config_path',
                         default='config/mnist.yaml', type=str)
     args = parser.parse_args()
+    
     train(args)

@@ -45,7 +45,6 @@ def train(args):
                                 im_path=dataset_config['im_path'],
                                 im_size=dataset_config['im_size'],
                                 im_channels=dataset_config['im_channels'],
-                                use_latents=True,
                                 latent_path=os.path.join(train_config['task_name'],
                                                          train_config['vqvae_latent_dir_name'])
                                 )
@@ -59,7 +58,8 @@ def train(args):
                  model_config=diffusion_model_config).to(device)
     model.train()
     
-    # Load VAE ONLY if latents are not to be used or are missing
+    vae = None
+    # 加载之前训练好的 VQVAE 模型
     if not im_dataset.use_latents:
         print('Loading vqvae model as latents not present')
         vae = VQVAE(im_channels=dataset_config['im_channels'],

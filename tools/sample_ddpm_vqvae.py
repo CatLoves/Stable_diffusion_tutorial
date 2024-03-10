@@ -46,10 +46,14 @@ def sample(model, scheduler, train_config, diffusion_model_config,
         grid = make_grid(ims, nrow=train_config['num_grid_rows'])
         img = torchvision.transforms.ToPILImage()(grid)
         
+        # save x0_pred
+        
         if not os.path.exists(os.path.join(train_config['task_name'], 'samples')):
             os.mkdir(os.path.join(train_config['task_name'], 'samples'))
-        img.save(os.path.join(train_config['task_name'], 'samples', 'x0_{}.png'.format(i)))
+        save_path = os.path.join(train_config['task_name'], 'samples', 'x0_{}.png'.format(i))
+        img.save(save_path)
         img.close()
+        print(f"=> saved to {save_path}.")
 
 
 def infer(args):

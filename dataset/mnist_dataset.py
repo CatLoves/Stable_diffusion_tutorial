@@ -1,18 +1,59 @@
 import glob
 import os
+import pandas as pd
+from PIL import Image
+import os
 import torchvision
 from PIL import Image
 from tqdm import tqdm
 from utils.diffusion_utils import load_latents
 from torch.utils.data.dataset import Dataset
 
+def convert_csv_to_images(csv_path, output_dir):
+    """ 
+    将 csv 文件转为 0-9/*.jpg 的形式
+    Args:
+        csv_path: str
+        output_dir: str
+    """
+    # 读取CSV文件
+    df = pd.read_csv(csv_path, header=0)
+
+    # 获取标签列和像素值列
+    labels = df.iloc[:, 0]
+    pixels = df.iloc[:, 1:]
+
+    # 确保输出目录存在
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 遍历每一行数据
+    for i in range(len(df)):
+        # 获取标签和像素值
+        label = labels.iloc[i]
+        pixel_values = pixels.iloc[i].values
+
+        # 将一维像素值数组转为二维数组 (28x28)
+        image_array = pixel_values.reshape(28, 28)
+
+        # 创建图像对象
+        image = Image.fromarray(image_array.astype('uint8'))
+
+        # 生成保存路径
+        save_path = os.path.join(output_dir, f"{label}/{i}.jpg")
+
+        # 确保标签子目录存在
+        os.makedirs(os.path.join(output_dir, str(label)), exist_ok=True)
+
+        # 保存图像
+        image.save(save_path)
+        print(f"=> saved to {save_path}")
 
 class MnistDataset(Dataset):
     r"""
     Nothing special here. Just a simple dataset class for mnist images.
     Created a dataset class rather using torchvision to allow
     replacement with any other image dataset
-    """
+    """ 
     
     def __init__(self, split, im_path, im_size, im_channels,
                  use_latents=False, latent_path=None, condition_config=None):
@@ -94,3 +135,14 @@ class MnistDataset(Dataset):
             else:
                 return im_tensor, cond_inputs
             
+if __name__ == "__main__":
+
+    # """ convert test set """
+    # csv_path = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist_test.csv'
+    # save_dir = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist/test/images'
+    # ds = convert_csv_to_images(csv_path, save_dir)
+    
+    """ convert train set """
+    csv_path = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist_train.csv'
+    save_dir = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist/train/images'
+    ds = convert_csv_to_images(csv_path, save_dir)

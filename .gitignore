@@ -2,6 +2,9 @@
 *.jpg
 *.png
 *.jpeg
+data/mnist/train
+data/mnist/test
+data/CelebAMask-HQ/*
 
 # Ignore pycharm and system files
 .DS_Store

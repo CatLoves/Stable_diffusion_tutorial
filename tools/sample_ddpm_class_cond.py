@@ -41,7 +41,8 @@ def sample(model, scheduler, train_config, diffusion_model_config,
     
     ############ Create Conditional input ###############
     num_classes = condition_config['class_condition_config']['num_classes']
-    sample_classes = torch.randint(0, num_classes, (train_config['num_samples'], ))
+    # sample_classes = torch.randint(0, num_classes, (train_config['num_samples'], ))
+    sample_classes = torch.arange(train_config['num_samples'])
     print('Generating images for {}'.format(list(sample_classes.numpy())))
     cond_input = {
         'class': torch.nn.functional.one_hot(sample_classes, num_classes).to(device)
@@ -54,9 +55,10 @@ def sample(model, scheduler, train_config, diffusion_model_config,
     
     # By default classifier free guidance is disabled
     # Change value in config or change default value here to enable it
-    cf_guidance_scale = get_config_value(train_config, 'cf_guidance_scale', 1.0)
+    cf_guidance_scale = get_config_value(train_config, 'cf_guidance_scale', 1.0) 
     
     ################# Sampling Loop ########################
+    save_interval = 100
     for i in tqdm(reversed(range(diffusion_config['num_timesteps']))):
         # Get prediction of noise
         t = (torch.ones((xt.shape[0],))*i).long().to(device)
@@ -71,7 +73,7 @@ def sample(model, scheduler, train_config, diffusion_model_config,
         # Use scheduler to get x0 and xt-1
         xt, x0_pred = scheduler.sample_prev_timestep(xt, noise_pred, torch.as_tensor(i).to(device))
         
-        if i == 0:
+        if i % save_interval == 0:
             # Decode ONLY the final image to save time
             ims = vae.decode(xt)
         else:
@@ -84,8 +86,11 @@ def sample(model, scheduler, train_config, diffusion_model_config,
         
         if not os.path.exists(os.path.join(train_config['task_name'], 'cond_class_samples')):
             os.mkdir(os.path.join(train_config['task_name'], 'cond_class_samples'))
-        img.save(os.path.join(train_config['task_name'], 'cond_class_samples', 'x0_{}.png'.format(i)))
-        img.close()
+        save_path = os.path.join(train_config['task_name'], 'cond_class_samples', 'x0_{}.png'.format(i))
+        if i % save_interval == 0:
+            img.save(save_path)
+            img.close()
+            print(f"=> saved to {save_path}")
     ##############################################################
 
 def infer(args):
