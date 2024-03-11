@@ -9,6 +9,7 @@ diffusion_params:
   beta_start : 0.0015
   beta_end : 0.0195
 
+# 
 ldm_params:
   down_channels: [ 128, 256, 256, 256]
   mid_channels: [ 256, 256]

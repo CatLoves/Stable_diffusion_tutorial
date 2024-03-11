@@ -18,10 +18,15 @@ def spatial_average(in_tens, keepdim=True):
 
 
 class vgg16(torch.nn.Module):
-    def __init__(self, requires_grad=False, pretrained=True):
+    def __init__(self, requires_grad=False, pretrained=True, model_dir='data/ckpts'):
         super(vgg16, self).__init__()
         # Load pretrained vgg model from torchvision
-        vgg_pretrained_features = torchvision.models.vgg16(pretrained=pretrained).features
+        pretrained_vgg = torchvision.models.vgg16(pretrained=False)
+        if pretrained and model_dir:
+            state_dict = torch.load('data/ckpts/vgg16-397923af.pth')
+            pretrained_vgg.load_state_dict(state_dict)
+        vgg_pretrained_features = pretrained_vgg.features
+        
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()

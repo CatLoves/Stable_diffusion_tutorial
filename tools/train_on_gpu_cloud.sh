@@ -32,16 +32,17 @@ export OPENCV_LOG_LEVEL=OFF
 
 train_sd()
 {
+    python tools/train_vqvae.py
     # export QAT_mode="horizon_eager_float"
-    python -m torch.distributed.launch \
-        --nnodes=${MLP_WORKER_NUM} \
-        --node_rank=${MLP_ROLE_INDEX} \
-        --master_addr=${MLP_WORKER_0_HOST} \
-        --nproc_per_node=${MLP_WORKER_GPU} \
-        --master_port=${MLP_WORKER_0_PORT} \
-        tools/train_ddpm_cond.py \
-        --launcher pytorch \
-        --work-dir pilot_mono3d_mutil_taskes_small_dense_depth_auxiliary
+    # python -m torch.distributed.launch \
+    #     --nnodes=${MLP_WORKER_NUM} \
+    #     --node_rank=${MLP_ROLE_INDEX} \
+    #     --master_addr=${MLP_WORKER_0_HOST} \
+    #     --nproc_per_node=${MLP_WORKER_GPU} \
+    #     --master_port=${MLP_WORKER_0_PORT} \
+    #     tools/train_ddpm_cond.py \
+    #     --launcher pytorch \
+    #     --work-dir pilot_mono3d_mutil_taskes_small_dense_depth_auxiliary
 }
 
 

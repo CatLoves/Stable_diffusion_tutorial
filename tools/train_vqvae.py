@@ -14,12 +14,35 @@ from dataset.mnist_dataset import MnistDataset
 from dataset.celeb_dataset import CelebDataset
 from torch.optim import Adam
 from torchvision.utils import make_grid
+# distributed related imports
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel
+from torch.utils.data import Dataset, DataLoader, RandomSampler
+torch.autograd.set_detect_anomaly(True)
+
+def setup(rank, world_size):
+    print(f"debug setup rank: {rank} world_size: {world_size}")
+    # set up the distributed environment
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+
+    # initialize the process group
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
 
 assert torch.cuda.is_available(), f"should use GPU."
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
-def train(args):
+def train(rank, world_size, args):
+    
+    """ distributed settings """
+    setup(rank, world_size)
+    
     # Read the config file #
     with open(args.config_path, 'r') as file:
         try:
@@ -42,8 +65,9 @@ def train(args):
     #############################
     
     # Create the model and dataset #
-    model = VQVAE(im_channels=dataset_config['im_channels'],
-                  model_config=autoencoder_config).to(device)
+    single_model = VQVAE(im_channels=dataset_config['im_channels'],
+                  model_config=autoencoder_config).to(rank)
+    model = DistributedDataParallel(single_model, device_ids=[rank])
     # Create the dataset
     im_dataset_cls = {
         'mnist': MnistDataset,
@@ -54,10 +78,13 @@ def train(args):
                                 im_path=dataset_config['im_path'],
                                 im_size=dataset_config['im_size'],
                                 im_channels=dataset_config['im_channels'])
-    
-    data_loader = DataLoader(im_dataset,
-                             batch_size=train_config['autoencoder_batch_size'],
-                             shuffle=True)
+    if world_size > 1:
+        sampler = DistributedSampler(im_dataset)
+    else:
+        sampler = RandomSampler(im_dataset)
+    data_loader = DataLoader(im_dataset, 
+                             sampler=sampler,
+                             batch_size=train_config['autoencoder_batch_size'])
     
     # Create output directories
     if not os.path.exists(train_config['task_name']):
@@ -71,8 +98,9 @@ def train(args):
     disc_criterion = torch.nn.MSELoss()
     
     # No need to freeze lpips as lpips.py takes care of that
-    lpips_model = LPIPS().eval().to(device)
-    discriminator = Discriminator(im_channels=dataset_config['im_channels']).to(device)
+    lpips_model = LPIPS().eval().to(rank)
+    discriminator = Discriminator(im_channels=dataset_config['im_channels']).to(rank)
+    discriminator = DistributedDataParallel(discriminator, device_ids=[rank])
     
     optimizer_d = Adam(discriminator.parameters(), lr=train_config['autoencoder_lr'], betas=(0.5, 0.999))
     optimizer_g = Adam(model.parameters(), lr=train_config['autoencoder_lr'], betas=(0.5, 0.999))
@@ -100,7 +128,7 @@ def train(args):
         
         for im in tqdm(data_loader, position=-1, mininterval=2):
             step_count += 1
-            im = im.float().to(device)
+            im = im.float().to(rank)
             
             # Fetch autoencoders output(reconstructions)
             model_output = model(im)
@@ -159,8 +187,8 @@ def train(args):
                                                            device=disc_real_pred.device))
                 disc_loss = train_config['disc_weight'] * (disc_fake_loss + disc_real_loss) / 2
                 disc_losses.append(disc_loss.item())
-                disc_loss = disc_loss / acc_steps
-                disc_loss.backward()
+                new_disc_loss = disc_loss / acc_steps
+                new_disc_loss.backward()
                 if step_count % acc_steps == 0:
                     optimizer_d.step()
                     optimizer_d.zero_grad()
@@ -195,7 +223,10 @@ def train(args):
         torch.save(discriminator.state_dict(), os.path.join(train_config['task_name'],
                                                             train_config['vqvae_discriminator_ckpt_name']))
     print('Done Training...')
-
+    
+def distributed_train(world_size, args):
+    
+    mp.spawn(train, args=(world_size, args), nprocs=world_size, join=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Arguments for vq vae training')
@@ -203,4 +234,7 @@ if __name__ == '__main__':
                         default='config/mnist.yaml', type=str)
     args = parser.parse_args()
     
-    train(args)
+    """ train cfg """
+    world_size = 2
+    distributed_train(world_size, args)
+    

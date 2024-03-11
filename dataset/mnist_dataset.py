@@ -143,6 +143,6 @@ if __name__ == "__main__":
     # ds = convert_csv_to_images(csv_path, save_dir)
     
     """ convert train set """
-    csv_path = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist_train.csv'
-    save_dir = '/root/bigModelProjects/stable_diffusion_explainingAI/data/mnist/train/images'
+    csv_path = '/data/mnist_train.csv'
+    save_dir = '/data/mnist/train/images'
     ds = convert_csv_to_images(csv_path, save_dir)
